@@ -72,6 +72,7 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
     private static final int TIME_BETWEEN_SENSOR_MEASUREMENTS = 200; //milliseconds
     static int sensorSwitchState,movingCounter;
 
+    //THIS IT NEEDED FOR NFC CONTACT.
     //NFC Variables
     NfcAdapter mNfcAdapter;
     EditText nfcTextOut;
@@ -114,6 +115,7 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
         sensorSwitchState = 0;
         movingCounter = 0;
 
+        //THIS IT NEEDED FOR NFC CONTACT. (or another way to see the NFC in- and output)
         //NFC Setup
         nfcTextOut = (EditText) findViewById(R.id.nfcTextOut);
         nfcTextIn = (TextView) findViewById(R.id.nfcTextIn);
@@ -309,6 +311,7 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
     public void onProviderDisabled(String provider) { //Method required, since LocationListener is implemented into the activity. However, no action is required here.
     }
 
+    //THIS IT NEEDED FOR NFC CONTACT.
     @Override
     public NdefMessage createNdefMessage(NfcEvent event) {
         String text = (nfcTextOut.getText().toString());
@@ -316,6 +319,7 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
         return msg;
     }
 
+    //THIS IT NEEDED FOR NFC CONTACT.
     // Creates a custom MIME type encapsulated in an NDEF record // @param mimeType
     public NdefRecord createMimeRecord(String mimeType, byte[] payload) {
         byte[] mimeBytes = mimeType.getBytes(Charset.forName("US-ASCII"));
@@ -323,6 +327,7 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
         return mimeRecord;
     }
 
+    //THIS IT NEEDED FOR NFC CONTACT.
     //Parses the NDEF Message from the intent and prints to the TextView
     void processIntent(Intent intent) {
         Parcelable[] rawMsgs = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES); // only one message sent during the beam
