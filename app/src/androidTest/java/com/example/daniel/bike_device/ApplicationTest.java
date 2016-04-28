@@ -1,4 +1,4 @@
-package com.example.daniel.bluetoothtestv20;
+package com.example.daniel.bike_device;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;

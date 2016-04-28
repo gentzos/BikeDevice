@@ -1,4 +1,4 @@
-package com.example.daniel.bluetoothtestv20;
+package com.example.daniel.bike_device;
 
 import org.junit.Test;
 

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">BluetoothTestv2.0</string>
+    <string name="app_name">Bike Device</string>
 
     <string name="title_connecting">connecting...</string>
     <string name="title_connected_to">Connected</string>
