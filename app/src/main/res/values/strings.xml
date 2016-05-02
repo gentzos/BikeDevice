@@ -23,8 +23,9 @@
     <string name="device_name">device_name</string>
 
     <string name="one_to_device">Send One to Bluetooth</string>
-    <string name="gps_on_off">Gps OFF/ON</string>
-    <string name="sensor_on_off">Sensor OFF/ON</string>
+    <string name="gps_on_off">Gps OFF/ON </string>
+    <string name="sensor_on_off">Sensor OFF/ON </string>
     <string name="nfc_text_out">Write NFC Beam text here... </string>
     <string name="nfc_text_in">Input</string>
+    <string name="lock_unlock">Unlock/Lock </string>
 </resources>

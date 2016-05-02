@@ -1,4 +1,4 @@
-package com.example.daniel.bike_device;
+package com.example.daniel.bikedevice;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.daniel.bike_device;
+package com.example.daniel.bikedevice;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;

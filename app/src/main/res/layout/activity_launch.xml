@@ -7,7 +7,7 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    tools:context="com.example.daniel.bike_device.LaunchActivity">
+    tools:context="com.example.daniel.bikedevice.LaunchActivity">
 
 
     <Button
@@ -40,7 +40,7 @@
         android:hint="@string/nfc_text_out"
         android:id="@+id/nfcTextOut"
         android:gravity="center"
-        android:layout_below="@+id/motionSensorsSwitch"
+        android:layout_below="@+id/lockSwitch"
         android:background="@drawable/back"/>
 
     <TextView
@@ -50,10 +50,17 @@
         android:gravity="center"
         android:textSize="22sp"
         android:padding="10dp"
-        android:id="@+id/nfcTextIn"
+        android:id="@+id/TextIn"
         android:layout_above="@+id/sendBut"
         android:layout_centerHorizontal="true"
         android:background="@drawable/back"/>
+    <Switch
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/lock_unlock"
+        android:id="@+id/lockSwitch"
+        android:layout_below="@+id/motionSensorsSwitch"
+        android:layout_centerHorizontal="true"/>
 
 
     Button

@@ -1,5 +1,5 @@
 
-package com.example.daniel.bike_device;
+package com.example.daniel.bikedevice;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;

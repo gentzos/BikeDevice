@@ -1,4 +1,4 @@
-package com.example.daniel.bike_device;
+package com.example.daniel.bikedevice;
 
 import android.Manifest;
 import android.app.Activity;
@@ -24,7 +24,6 @@ import android.os.Parcelable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -36,6 +35,13 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+
 import java.io.IOException;
 import java.nio.charset.Charset;
 
@@ -46,8 +52,6 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
     private BluetoothAdapter mBluetoothAdapter = null;
     private static BluetoothService mSerialService = null;
     public static final int MESSAGE_STATE_CHANGE = 1;
-    public static final int MESSAGE_WRITE = 3;
-    public static final int MESSAGE_DEVICE_NAME = 4;
     private static final int REQUEST_CONNECT_DEVICE = 1; //onActivityResult ID number for connecting devices in the DeviceListActivity class.
     private static final int REQUEST_ENABLE_BT = 2; //onActivityResult ID number for enabling bluetooth -> class not created by WiMB.
 
@@ -60,28 +64,36 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
     protected LocationManager locationManager;
     protected LocationListener locationListener;
     protected Context context;
+    private static final int TIME_BETWEEN_GPS_MEASUREMENTS = 5000; //milliseconds
+    private long startTimeGps = 0;
+    Switch gpsSwicth;
 
     //Accelerometer Variables
     private SensorManager mSensorManager;
     private Sensor mSensor;
     private long startTime, thresholdStartTime = 0;
     private float last_x, last_y, last_z = 0;
-    private static final float SHAKE_SENSOR_THRESHOLD = 10; //
-    private static final int TIME_SENSOR_THRESHOLD = 4000; //milliseconds
-    private static final int COUNTER_SENSOR_THRESHOLD = 10; //no unit
+    private static final float SHAKE_SENSOR_THRESHOLD = 5; //m/s^2
+    private static final int TIME_SENSOR_THRESHOLD = 2000; //milliseconds
+    private static final int COUNTER_SENSOR_THRESHOLD = 5; //no unit
     private static final int TIME_BETWEEN_SENSOR_MEASUREMENTS = 200; //milliseconds
     static int sensorSwitchState,movingCounter;
+    Switch sensorSwitch;
+
 
     //THIS IT NEEDED FOR NFC CONTACT.
     //NFC Variables
     NfcAdapter mNfcAdapter;
     EditText nfcTextOut;
-    TextView nfcTextIn;
+    TextView TextIn;
+    static int lockState;
+    Switch lockSwitch;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launch);
+        TextIn = (TextView) findViewById(R.id.TextIn);
 
         //Bluetooth Setup
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -101,7 +113,7 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {return; }
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);
-        Switch gpsSwicth = (Switch) findViewById(R.id.gpsSwitch);
+        gpsSwicth = (Switch) findViewById(R.id.gpsSwitch);
         gpsSwicth.setOnCheckedChangeListener(this);
         gpsSwitchState = 0;
 
@@ -110,7 +122,7 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mSensorManager.registerListener(this, mSensor , SensorManager.SENSOR_DELAY_NORMAL);
-        Switch sensorSwitch = (Switch) findViewById(R.id.motionSensorsSwitch);
+        sensorSwitch = (Switch) findViewById(R.id.motionSensorsSwitch);
         sensorSwitch.setOnCheckedChangeListener(this);
         sensorSwitchState = 0;
         movingCounter = 0;
@@ -118,7 +130,7 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
         //THIS IT NEEDED FOR NFC CONTACT. (or another way to see the NFC in- and output)
         //NFC Setup
         nfcTextOut = (EditText) findViewById(R.id.nfcTextOut);
-        nfcTextIn = (TextView) findViewById(R.id.nfcTextIn);
+        //TextIn = (TextView) findViewById(R.id.TextIn);
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this); // Check for available NFC Adapter
         if (mNfcAdapter == null) {
             Toast.makeText(this, "NFC is not available", Toast.LENGTH_LONG).show();
@@ -126,6 +138,8 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
             return;
         }
         mNfcAdapter.setNdefPushMessageCallback(this, this); // Register callback
+        lockSwitch = (Switch) findViewById(R.id.lockSwitch);
+        lockSwitch.setOnCheckedChangeListener(this);
 
     }
 
@@ -137,6 +151,10 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
     @Override
     public void onResume() {
         super.onResume();
+        sensorSwitch = (Switch) findViewById(R.id.motionSensorsSwitch);
+        sensorSwitch.setOnCheckedChangeListener(this);
+        lockSwitch = (Switch) findViewById(R.id.lockSwitch);
+        lockSwitch.setOnCheckedChangeListener(this);
         if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(getIntent().getAction())) {  // Check to see that the Activity started due to an Android Beam
             processIntent(getIntent());
         }
@@ -156,6 +174,19 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
                     sensorSwitchState = 1; //Turn on sensor when Switch is ON
                 } else {
                     sensorSwitchState = 0; //Turn off sensor when Switch if OFF
+                }
+                break;
+            case R.id.lockSwitch:
+                if(isChecked){
+                    lockState = 1;  //NFC contact will prompt the bike device to lock.
+                    CharSequence lockedMsgArduino = "z";
+                    sendText(lockedMsgArduino);
+                    Toast.makeText(this,"Locked",Toast.LENGTH_LONG).show();
+                } else {
+                    lockState = 0;  //NFC contact will prompt the bike device to unlock.
+                    CharSequence unlockedMsgArduino = "x";
+                    sendText(unlockedMsgArduino);
+                    Toast.makeText(this,"Unlocked",Toast.LENGTH_LONG).show();
                 }
                 break;
         }
@@ -186,10 +217,10 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
                         }
                         if((System.currentTimeMillis() - thresholdStartTime > TIME_SENSOR_THRESHOLD)){ //Time is up, since the initial movement.
                             thresholdStartTime = 0;                                                    //Reset timer.
-                            if(movingCounter > COUNTER_SENSOR_THRESHOLD) {                              //Check if the amount of counters is higher than COUNTER_SENSOR_THRESHOLD.
-                                Log.d("Counter_Sensor", "Success!");                                    //Send code to Arduino for starting Siren.
-                                CharSequence SensorChar = "q";
+                            if(movingCounter > COUNTER_SENSOR_THRESHOLD) {                             //Check if the amount of counters is higher than COUNTER_SENSOR_THRESHOLD.
+                                CharSequence SensorChar = "q";                                         //Send code to Arduino for starting Siren.
                                 sendText(SensorChar);
+                                gpsSwicth.setChecked(true);
                             }
                             movingCounter = 0;
                         }
@@ -294,8 +325,28 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
     @Override
     public void onLocationChanged(Location location) { //Method call every time a location change is registered.
         if(gpsSwitchState == 1) {                       //Check if the GPS swicth is on.
-            CharSequence LatAndLon = " - Latitude: " + Double.toString(location.getLatitude()) + " - Longitude: " + Double.toString(location.getLongitude()); //Send the location to Arduino.
-            sendText(LatAndLon);
+            if(startTimeGps == 0) {                    //startTime can either be zero if it is the first time or if it has been reset.
+                startTimeGps = System.currentTimeMillis(); //set current time to startTime.
+            }else if((System.currentTimeMillis() - startTimeGps) > TIME_BETWEEN_GPS_MEASUREMENTS) {  //if the difference between now and the startTime is greater than TIME_BETWEEN_SENSOR_MEASUREMENTS continue to store a measurement.
+                CharSequence LatAndLon = " - Latitude: " + Double.toString(location.getLatitude()) + " - Longitude: " + Double.toString(location.getLongitude()); //Send the location to Arduino.
+                sendText(LatAndLon);
+                RequestQueue queue = Volley.newRequestQueue(getBaseContext());          // Instantiate the RequestQueue.
+                String url = "http://192.168.0.104:3000/wimb/updateGps?VIN=goddag&latitude="+Double.toString(location.getLatitude())+"&longitude="+Double.toString(location.getLongitude());           // Request a string response from the provided URL.
+                StringRequest stringRequest = new StringRequest(Request.Method.GET, url, new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        TextIn.setText("Response is OK");
+                    }
+                }, new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        TextIn.setText("That didn't work!");
+                    }
+                });
+// Add the request to the RequestQueue.
+                queue.add(stringRequest);
+                startTimeGps = 0;
+            }
         }
     }
 
@@ -314,8 +365,15 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
     //THIS IT NEEDED FOR NFC CONTACT.
     @Override
     public NdefMessage createNdefMessage(NfcEvent event) {
-        String text = (nfcTextOut.getText().toString());
-        NdefMessage msg = new NdefMessage(new NdefRecord[] { createMimeRecord("application/com.example.daniel.bluetoothtestv20", text.getBytes()),NdefRecord.createApplicationRecord("com.example.daniel.bluetoothtestv20")});
+        String text = "";
+        if(lockState == 1){
+            text = "unlocked";
+        }
+        if(lockState == 0) {
+            text = "locked";
+        }
+        NdefMessage msg = new NdefMessage(new NdefRecord[]{createMimeRecord("application/com.example.daniel.bikedevice", text.getBytes())//, NdefRecord.createApplicationRecord("com.example.daniel.bike_device")
+                });
         return msg;
     }
 
@@ -327,11 +385,25 @@ public class LaunchActivity extends AppCompatActivity implements LocationListene
         return mimeRecord;
     }
 
+    @Override
+    public void onNewIntent(Intent intent) {
+        // onResume gets called after this to handle the intent
+        setIntent(intent);
+    }
+
     //THIS IT NEEDED FOR NFC CONTACT.
-    //Parses the NDEF Message from the intent and prints to the TextView
+    //Parses the NDEF Message from the intent.
     void processIntent(Intent intent) {
-        Parcelable[] rawMsgs = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES); // only one message sent during the beam
-        NdefMessage msg = (NdefMessage) rawMsgs[0];
-        nfcTextIn.setText("BikeID: " + new String(msg.getRecords()[0].getPayload())+"\n"+"Encrypted Challenge: [....]"); // record 0 contains the MIME type.
+        Parcelable[] rawMsgs = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
+        NdefMessage msg = (NdefMessage) rawMsgs[0];                 // only one message sent during the beam
+        String text = new String(msg.getRecords()[0].getPayload()); // record 0 contains the MIME type, record 1 is the AAR, if present
+        if(text.equals("locked")){
+            sensorSwitch.setChecked(false);
+            lockSwitch.setChecked(false);
+        }
+        if(text.equals("unlocked")){
+            sensorSwitch.setChecked(true);
+            lockSwitch.setChecked(true);
+        }
     }
 }
